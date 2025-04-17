@@ -86,5 +86,14 @@ export const fetchResourceGeoJSON = (resourceId: string) => {
     return createRequest(url)();
 };
 
+export const fetchItemDetails = (itemId: string) => {
+    const url = arches.urls["api-list-item-details"](itemId);
+    return createRequest(url)();
+};
+
+export const fetchListItemGeoJSON = (url: string) => {
+    return createRequest(url)();
+};
+
 export const fetchSettings = createRequest(arches.urls["api-settings"]);
 export const fetchMapData = createRequest(arches.urls["api-map-data"]);

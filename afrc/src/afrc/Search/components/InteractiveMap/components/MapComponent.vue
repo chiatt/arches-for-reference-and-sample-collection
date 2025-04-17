@@ -16,6 +16,7 @@ import {
     fetchGeoJSONBounds,
     fetchResourceBounds,
     fetchResourceGeoJSON,
+    fetchListItemGeoJSON,
 } from "@/afrc/Search/api.ts";
 
 import {
@@ -110,6 +111,7 @@ const {
 let resultsSelected = inject("resultsSelected") as Ref<string[]>;
 let resultSelected = inject("resultSelected") as Ref<string>;
 let zoomFeature = inject("zoomFeature") as GenericObject;
+let geojsonSource = inject("geojsonSource") as Ref<string>;
 let highlightResult = inject("highlightResult") as Ref<string>;
 const searchFilters = inject("searchFilters") as Ref<SearchFilter[]>;
 
@@ -244,6 +246,25 @@ watch(
             updateDrawnFeatures();
         }
         zoomFeature.value = {resource: "", action: ""};
+    },
+    { deep: true },
+);
+
+watch(
+    () => geojsonSource,
+    async (url) => {
+        if (!url.value) {
+            return;
+        }
+        const features = await fetchListItemGeoJSON(url.value as string);
+        if (features) {
+            draw.deleteAll();
+            features.features.forEach((feature: Feature) => {
+                draw.add(feature);
+            });
+        }
+        updateDrawnFeatures();
+        url.value = "";
     },
     { deep: true },
 );

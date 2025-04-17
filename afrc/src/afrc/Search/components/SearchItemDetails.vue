@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, inject, ref, watch } from "vue";
 import type { UnspecifiedObject, GenericObject } from "@/afrc/Search/types";
-import { fetchResourceData, fetchImageData } from "@/afrc/Search/api.ts";
+import { fetchResourceData, fetchImageData, fetchItemDetails } from "@/afrc/Search/api.ts";
 import type { Ref } from "vue";
 import Button from "primevue/button";
 import Carousel from "primevue/carousel";
@@ -9,11 +9,13 @@ import Carousel from "primevue/carousel";
 const resultSelected = inject("resultSelected") as Ref<string>;
 const resultsSelected = inject("resultsSelected") as Ref<string[]>;
 const zoomFeature = inject("zoomFeature") as GenericObject;
+const geojsonSource = inject("geojsonSource") as Ref<string>;
 const showMap = inject("showMap") as Ref<string>;
 
 const displayname: Ref<string> = ref("");
 const displaydescription: Ref<string> = ref("");
 const images: Ref<string[]> = ref([]);
+const listItems: Ref<GenericObject[]> = ref([]);
 const acquisitions: Ref<Acquisition[]> = ref([]);
 const composition: Ref<Composition[]> = ref([]);
 const identifier: Ref<string> = ref("");
@@ -61,6 +63,11 @@ async function getData() {
         name: place.display_value,
         resourceid: place.resourceId,
     }));
+    const placeItem = resp.resource["Production "]?.[0]["Production_location"]?.["Location Place Item"]?.["item_details"][0]["labels"].map((place: GenericObject) => ({
+        name: place.value,
+        itemid: place.list_item_id,
+    }));
+
     acquisitions.value = resp.resource["Addition to Collection"]?.map(
         (tile: GenericObject) => ({
             person: tile?.["Addition to Collection_carried out by"][
@@ -96,6 +103,14 @@ async function getData() {
     } else {
         images.value = [];
     }
+    if (placeItem) {
+        const xxx = await fetchItemDetails(placeItem[0].itemid);
+        console.log(xxx);
+        listItems.value = [xxx];
+        console.log(listItems.value);
+    } else {
+        listItems.value = [];
+    }
 }
 
 function clearResult() {
@@ -105,6 +120,9 @@ function clearResult() {
 
 function zoomToSearchResult(resourceid: string, action: string) {
     zoomFeature.value = {resourceid, action};
+}
+function searchByListItem(url: string) {
+    geojsonSource.value = `${url}`;
 }
 </script>
 
@@ -247,75 +265,33 @@ function zoomToSearchResult(resourceid: string, action: string) {
             </div>
         </div>
         <div>
-            <div class="resource-details">
-                <div class="value-header">Associated Places</div>
+        </div>
+        <div>
+            <div class="resource-details" v-if="hasGeom && showMap">
+
+                <div class="value-header">Search by Associated Places</div>
+
                 <div
-                    v-for="place in placeNames"
-                    :key="place.resourceid"
-                    style="
-                        display: flex;
-                        flex-direction: row;
-                        align-items: center;
-                        justify-content: space-between;
-                    "
-                >
-                    <div class="value-entry">
-                        <span
-                            class="resource-details-value"
-                            @click="console.log(place)"
-                            >{{ place.name }}</span
-                        >
-                    </div>
-                    <div style="display: flex; flex-direction: row">
-                        <div v-if="hasGeom && showMap">
-                            <Button
-                                class="action-button"
-                                label="Zoom to Place"
-                                severity="secondary"
-                                text
-                                icon="pi pi-map-marker"
-                                size="large"
-                                @click="
-                                    zoomToSearchResult(place.resourceid, 'zoom')
-                                "
-                            />
-                        </div>
-                        <div v-if="hasGeom && showMap">
-                            <Button
-                                class="action-button"
-                                label="Search Here"
-                                severity="secondary"
-                                text
-                                icon="pi pi-search"
-                                size="large"
-                                @click="
-                                    zoomToSearchResult(
-                                        place.resourceid,
-                                        'search',
-                                    )
-                                "
-                            />
+                        v-for="item in listItems"
+                        :key="item.id"
+                        style="
+                            display: flex;
+                            flex-direction: row;
+                            align-items: start;
+                            justify-content: space-between;
+                            width: 100%;
+                        "
+                    >
+                    <div>
+                        <div style="display: flex; flex-direction: column; align-items: start;">
+                            <div v-if="item.grandparent" style="padding-inline-start: 0rem"><Button @click="searchByListItem(item.grandparent.uri)" size="small" style="font-size: 1.4rem" variant="link">{{ item?.grandparent?.values[0].value }}</Button></div>
+                            <div style="padding-inline-start: 1.2rem"><Button @click="searchByListItem(item.parent.uri)" size="small" style="font-size: 1.4rem" variant="link">{{ item?.parent?.values[0].value }}</Button></div>
+                            <div style="padding-inline-start: 2.4rem"><Button @click="searchByListItem(item.item.uri)" size="small" style="font-size: 1.4rem" variant="link">{{ item?.item?.values[0].value }}</Button></div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-        <div v-if="hasGeom && showMap" class="zoom-to-item">
-                    <Button
-                        class="action-button"
-                        label="Zoom To Item"
-                        severity="secondary"
-                        text
-                        icon="pi pi-map-marker"
-                        size="large"
-                        @click="
-                            zoomToSearchResult(
-                                resultSelected,
-                                'zoom-and-select',
-                            )
-                        "
-                    />
-                </div>
     </div>
 </template>
 
